@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YTPLAY</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a; --surface: #111; --border: #1e1e1e;
+    --accent: #e8ff47; --text: #f0f0f0; --muted: #555; --radius: 4px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Mono', monospace; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 40px 16px; }
+  .noise { position: fixed; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E"); pointer-events: none; z-index: 0; }
+  .wrap { width: 100%; max-width: 480px; position: relative; z-index: 1; }
+  .header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 32px; }
+  .logo { font-family: 'Bebas Neue', sans-serif; font-size: 2.4rem; letter-spacing: 2px; color: var(--accent); line-height: 1; }
+  .logo-sub { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 3px; }
+  .search-row { display: flex; gap: 8px; margin-bottom: 24px; }
+  input[type="text"] { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text); font-family: 'DM Mono', monospace; font-size: 0.8rem; padding: 12px 14px; border-radius: var(--radius); outline: none; transition: border-color 0.2s; }
+  input[type="text"]:focus { border-color: var(--accent); }
+  input[type="text"]::placeholder { color: var(--muted); }
+  .btn { background: var(--accent); color: #000; border: none; font-family: 'Bebas Neue', sans-serif; font-size: 1rem; letter-spacing: 1px; padding: 12px 20px; border-radius: var(--radius); cursor: pointer; transition: opacity 0.15s, transform 0.1s; white-space: nowrap; }
+  .btn:hover { opacity: 0.85; }
+  .btn:active { transform: scale(0.97); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text); font-family: 'DM Mono', monospace; font-size: 0.7rem; padding: 8px 14px; border-radius: var(--radius); cursor: pointer; transition: border-color 0.2s, color 0.2s; }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .status { font-size: 0.72rem; color: var(--muted); margin-bottom: 20px; min-height: 16px; letter-spacing: 0.5px; }
+  .status.loading { color: var(--accent); }
+  .status.error { color: #ff5e5e; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; display: none; animation: fadeUp 0.3s ease; }
+  .card.show { display: block; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  .thumb-wrap { position: relative; width: 100%; aspect-ratio: 16/9; overflow: hidden; background: #000; }
+  .thumb-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; filter: brightness(0.7); transition: filter 0.3s; }
+  .thumb-wrap:hover img { filter: brightness(0.5); }
+  .thumb-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 60%); }
+  .thumb-meta { position: absolute; bottom: 14px; left: 16px; right: 16px; }
+  .track-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; letter-spacing: 1px; line-height: 1.1; margin-bottom: 4px; color: #fff; }
+  .track-artist { font-size: 0.7rem; color: rgba(255,255,255,0.6); letter-spacing: 1px; text-transform: uppercase; }
+  .card-body { padding: 16px; }
+  .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .meta-item label { display: block; font-size: 0.6rem; color: var(--muted); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 3px; }
+  .meta-item span { font-size: 0.75rem; color: var(--text); }
+  .player { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 12px; }
+  .player-controls { display: flex; align-items: center; gap: 12px; }
+  .play-btn { width: 38px; height: 38px; border-radius: 50%; background: var(--accent); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: transform 0.1s, opacity 0.15s; }
+  .play-btn:hover { opacity: 0.85; }
+  .play-btn:active { transform: scale(0.93); }
+  .play-btn svg { fill: #000; }
+  .time-wrap { flex: 1; }
+  .progress-bar { width: 100%; height: 3px; background: var(--border); border-radius: 2px; cursor: pointer; position: relative; margin-bottom: 6px; }
+  .progress-fill { height: 100%; background: var(--accent); border-radius: 2px; width: 0%; transition: width 0.1s linear; pointer-events: none; }
+  .time-labels { display: flex; justify-content: space-between; font-size: 0.6rem; color: var(--muted); }
+  .vol-row { display: flex; align-items: center; gap: 8px; }
+  .vol-icon { color: var(--muted); font-size: 0.75rem; }
+  input[type="range"] { -webkit-appearance: none; width: 80px; height: 3px; background: var(--border); border-radius: 2px; outline: none; cursor: pointer; }
+  input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); cursor: pointer; }
+  .actions { display: flex; gap: 8px; }
+  .yt-link { font-size: 0.65rem; color: var(--muted); text-decoration: none; display: flex; align-items: center; gap: 4px; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius); transition: color 0.2s, border-color 0.2s; }
+  .yt-link:hover { color: var(--accent); border-color: var(--accent); }
+  .spinner { display: inline-block; width: 10px; height: 10px; border: 2px solid var(--muted); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="noise"></div>
+<div class="wrap">
+  <div class="header">
+    <div class="logo">YTPLAY</div>
+    <div class="logo-sub">audio stream</div>
+  </div>
+  <div class="search-row">
+    <input type="text" id="q" placeholder="cari lagu..." value="laskar cinta" />
+    <button class="btn" id="searchBtn" onclick="doSearch()">CARI</button>
+  </div>
+  <div class="status" id="status"></div>
+  <div class="card" id="card">
+    <div class="thumb-wrap">
+      <img id="thumb" src="" alt="">
+      <div class="thumb-overlay"></div>
+      <div class="thumb-meta">
+        <div class="track-title" id="trackTitle">—</div>
+        <div class="track-artist" id="trackArtist">—</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="meta-grid">
+        <div class="meta-item"><label>Duration</label><span id="metaDuration">—</span></div>
+        <div class="meta-item"><label>Views</label><span id="metaViews">—</span></div>
+        <div class="meta-item"><label>Upload Date</label><span id="metaDate">—</span></div>
+        <div class="meta-item"><label>Source</label><span>YouTube</span></div>
+      </div>
+      <div class="player">
+        <div class="player-controls">
+          <button class="play-btn" onclick="togglePlay()">
+            <svg id="playIcon" width="14" height="14" viewBox="0 0 16 16"><path d="M3 2l10 6-10 6V2z"/></svg>
+          </button>
+          <div class="time-wrap">
+            <div class="progress-bar" id="progressBar" onclick="seekTo(event)">
+              <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="time-labels">
+              <span id="timeCurrent">0:00</span>
+              <span id="timeTotal">0:00</span>
+            </div>
+          </div>
+          <div class="vol-row">
+            <span class="vol-icon">vol</span>
+            <input type="range" min="0" max="1" step="0.05" value="1" oninput="setVol(this.value)">
+          </div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn-ghost" onclick="doDownload()">↓ download</button>
+        <a id="ytLink" href="#" target="_blank" class="yt-link">
+          <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm3.8 8.4l-5.6 3.2c-.4.2-.7 0-.7-.4V4.8c0-.4.3-.6.7-.4l5.6 3.2c.4.2.4.6 0 .8z"/></svg>
+          buka di youtube
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<audio id="audio"></audio>
+
+<script>
+  const API = ''  // kosong = same origin (Vercel)
+  let currentData = null
+  const audio = document.getElementById('audio')
+
+  async function doSearch() {
+    const q = document.getElementById('q').value.trim()
+    if (!q) return
+    setStatus('loading', `<span class="spinner"></span> searching "${q}"...`)
+    document.getElementById('searchBtn').disabled = true
+    document.getElementById('card').classList.remove('show')
+    audio.pause()
+    try {
+      const res = await fetch(`${API}/api/search?q=${encodeURIComponent(q)}`)
+      if (!res.ok) throw new Error('Server error ' + res.status)
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      currentData = data
+      renderCard(data)
+      setStatus('', '')
+    } catch(e) {
+      setStatus('error', '✗ ' + e.message)
+    }
+    document.getElementById('searchBtn').disabled = false
+  }
+
+  function renderCard(d) {
+    document.getElementById('thumb').src = d.thumbnail
+    document.getElementById('trackTitle').textContent = d.title
+    document.getElementById('trackArtist').textContent = d.uploader
+    document.getElementById('metaDuration').textContent = formatDur(d.duration)
+    document.getElementById('metaViews').textContent = formatViews(d.views)
+    document.getElementById('metaDate').textContent = formatDate(d.uploadDate)
+    document.getElementById('ytLink').href = d.url
+    document.getElementById('timeTotal').textContent = formatDur(d.duration)
+    document.getElementById('card').classList.add('show')
+    const q = document.getElementById('q').value.trim()
+    audio.src = `${API}/api/stream?q=${encodeURIComponent(q)}`
+    audio.load()
+    setupAudioEvents()
+  }
+
+  function setupAudioEvents() {
+    audio.ontimeupdate = () => {
+      const pct = audio.duration ? (audio.currentTime / audio.duration) * 100 : 0
+      document.getElementById('progressFill').style.width = pct + '%'
+      document.getElementById('timeCurrent').textContent = formatDur(Math.floor(audio.currentTime))
+      if (audio.duration) document.getElementById('timeTotal').textContent = formatDur(Math.floor(audio.duration))
+    }
+    audio.onended = () => setPlayIcon(false)
+    audio.onplay = () => setPlayIcon(true)
+    audio.onpause = () => setPlayIcon(false)
+  }
+
+  function togglePlay() {
+    if (!audio.src) return
+    audio.paused ? audio.play() : audio.pause()
+  }
+
+  function seekTo(e) {
+    if (!audio.duration) return
+    const bar = document.getElementById('progressBar')
+    audio.currentTime = (e.offsetX / bar.clientWidth) * audio.duration
+  }
+
+  function setVol(v) { audio.volume = v }
+
+  function setPlayIcon(playing) {
+    document.getElementById('playIcon').innerHTML = playing
+      ? '<rect x="3" y="2" width="4" height="12"/><rect x="9" y="2" width="4" height="12"/>'
+      : '<path d="M3 2l10 6-10 6V2z"/>'
+  }
+
+  async function doDownload() {
+    if (!currentData) return
+    const q = document.getElementById('q').value.trim()
+    setStatus('loading', `<span class="spinner"></span> downloading...`)
+    try {
+      const res = await fetch(`${API}/api/download?q=${encodeURIComponent(q)}`)
+      if (!res.ok) throw new Error('Download failed')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = currentData.title + '.m4a'
+      a.click()
+      URL.revokeObjectURL(url)
+      setStatus('', '')
+    } catch(e) {
+      setStatus('error', '✗ ' + e.message)
+    }
+  }
+
+  function setStatus(type, msg) {
+    const el = document.getElementById('status')
+    el.className = 'status ' + type
+    el.innerHTML = msg
+  }
+
+  function formatDur(s) {
+    const m = Math.floor(s / 60)
+    return `${m}:${String(s % 60).padStart(2,'0')}`
+  }
+
+  function formatViews(v) {
+    if (!v) return '—'
+    if (v >= 1e9) return (v/1e9).toFixed(1) + 'B'
+    if (v >= 1e6) return (v/1e6).toFixed(1) + 'M'
+    if (v >= 1e3) return (v/1e3).toFixed(1) + 'K'
+    return v
+  }
+
+  function formatDate(d) {
+    if (!d || d.length !== 8) return '—'
+    return `${d.slice(6,8)}/${d.slice(4,6)}/${d.slice(0,4)}`
+  }
+
+  document.getElementById('q').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doSearch()
+  })
+</script>
+</body>
+</html>
